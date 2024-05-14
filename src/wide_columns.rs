@@ -1,8 +1,5 @@
 use crate::ffi;
-use std::{
-    marker::PhantomData,
-    ptr::{null, slice_from_raw_parts},
-};
+use std::{marker::PhantomData, ptr::slice_from_raw_parts};
 
 pub struct WideColumn<'a> {
     pub name: &'a [u8],
@@ -19,7 +16,7 @@ impl<'a> WideColumns<'a> {
     pub unsafe fn from_c(inner: *const ffi::rocksdb_widecolumns_t) -> Self {
         Self {
             inner,
-            columns_size: ffi::rocksdb_widecolumns_len(inner),
+            columns_size: ffi::rocksdb_widecolumns_size(inner),
             iter: PhantomData,
         }
     }
@@ -34,15 +31,13 @@ impl<'a> WideColumns<'a> {
 
     pub unsafe fn get_column_name_unchecked(&self, idx: usize) -> &[u8] {
         let mut name_len: usize = 0;
-        let mut name = null::<i8>();
-        ffi::rocksdb_widecolumns_name(self.inner, idx, &mut name, &mut name_len);
+        let name = ffi::rocksdb_widecolumns_name(self.inner, idx, &mut name_len);
         &*slice_from_raw_parts(name as *const u8, name_len)
     }
 
     pub unsafe fn get_column_value_unchecked(&self, idx: usize) -> &[u8] {
         let mut value_len: usize = 0;
-        let mut value = null::<i8>();
-        ffi::rocksdb_widecolumns_value(self.inner, idx, &mut value, &mut value_len);
+        let value = ffi::rocksdb_widecolumns_value(self.inner, idx, &mut value_len);
         &*slice_from_raw_parts(value as *const u8, value_len)
     }
 
@@ -64,7 +59,7 @@ impl<'a> PinnableWideColumns<'a> {
     pub unsafe fn from_c(inner: *const ffi::rocksdb_pinnablewidecolumns_t) -> Self {
         Self {
             inner,
-            columns_size: ffi::rocksdb_pinnablewidecolumns_len(inner),
+            columns_size: ffi::rocksdb_pinnablewidecolumns_size(inner),
             iter: PhantomData,
         }
     }
@@ -79,15 +74,13 @@ impl<'a> PinnableWideColumns<'a> {
 
     pub unsafe fn get_column_name_unchecked(&self, idx: usize) -> &[u8] {
         let mut name_len: usize = 0;
-        let mut name = null::<i8>();
-        ffi::rocksdb_pinnablewidecolumns_name(self.inner, idx, &mut name, &mut name_len);
+        let name = ffi::rocksdb_pinnablewidecolumns_name(self.inner, idx, &mut name_len);
         &*slice_from_raw_parts(name as *const u8, name_len)
     }
 
     pub unsafe fn get_column_value_unchecked(&self, idx: usize) -> &[u8] {
         let mut value_len: usize = 0;
-        let mut value = null::<i8>();
-        ffi::rocksdb_pinnablewidecolumns_value(self.inner, idx, &mut value, &mut value_len);
+        let value = ffi::rocksdb_pinnablewidecolumns_value(self.inner, idx, &mut value_len);
         &*slice_from_raw_parts(value as *const u8, value_len)
     }
 
