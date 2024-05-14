@@ -94,3 +94,15 @@ impl<'a> PinnableWideColumns<'a> {
         }
     }
 }
+
+impl Drop for WideColumns<'_> {
+    fn drop(&mut self) {
+        unsafe { ffi::rocksdb_widecolumns_destroy(self.inner as *mut _) }
+    }
+}
+
+impl Drop for PinnableWideColumns<'_> {
+    fn drop(&mut self) {
+        unsafe { ffi::rocksdb_pinnablewidecolumns_destroy(self.inner as *mut _) }
+    }
+}
