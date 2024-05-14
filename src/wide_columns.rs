@@ -28,19 +28,21 @@ impl<'a> WideColumns<'a> {
         self.columns_size
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.columns_size == 0
+    }
+
     pub unsafe fn get_column_name_unchecked(&self, idx: usize) -> &[u8] {
         let mut name_len: usize = 0;
-        let name_len_ptr: *mut usize = &mut name_len;
-        let name = null::<*const i8>() as *mut *const i8;
-        ffi::rocksdb_widecolumns_name(self.inner, idx, name, name_len_ptr);
+        let mut name = null::<i8>();
+        ffi::rocksdb_widecolumns_name(self.inner, idx, &mut name, &mut name_len);
         &*slice_from_raw_parts(name as *const u8, name_len)
     }
 
     pub unsafe fn get_column_value_unchecked(&self, idx: usize) -> &[u8] {
         let mut value_len: usize = 0;
-        let value_len_ptr: *mut usize = &mut value_len;
-        let value = null::<*const i8>() as *mut *const i8;
-        ffi::rocksdb_widecolumns_value(self.inner, idx, value, value_len_ptr);
+        let mut value = null::<i8>();
+        ffi::rocksdb_widecolumns_value(self.inner, idx, &mut value, &mut value_len);
         &*slice_from_raw_parts(value as *const u8, value_len)
     }
 
@@ -71,19 +73,21 @@ impl<'a> PinnableWideColumns<'a> {
         self.columns_size
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.columns_size == 0
+    }
+
     pub unsafe fn get_column_name_unchecked(&self, idx: usize) -> &[u8] {
         let mut name_len: usize = 0;
-        let name_len_ptr: *mut usize = &mut name_len;
-        let name = null::<*const i8>() as *mut *const i8;
-        ffi::rocksdb_pinnablewidecolumns_name(self.inner, idx, name, name_len_ptr);
+        let mut name = null::<i8>();
+        ffi::rocksdb_pinnablewidecolumns_name(self.inner, idx, &mut name, &mut name_len);
         &*slice_from_raw_parts(name as *const u8, name_len)
     }
 
     pub unsafe fn get_column_value_unchecked(&self, idx: usize) -> &[u8] {
         let mut value_len: usize = 0;
-        let value_len_ptr: *mut usize = &mut value_len;
-        let value = null::<*const i8>() as *mut *const i8;
-        ffi::rocksdb_pinnablewidecolumns_value(self.inner, idx, value, value_len_ptr);
+        let mut value = null::<i8>();
+        ffi::rocksdb_pinnablewidecolumns_value(self.inner, idx, &mut value, &mut value_len);
         &*slice_from_raw_parts(value as *const u8, value_len)
     }
 
@@ -95,14 +99,104 @@ impl<'a> PinnableWideColumns<'a> {
     }
 }
 
+pub trait Iterable {
+    type Item<'me>
+    where
+        Self: 'me;
+
+    type Iter<'me>: Iterator<Item = Self::Item<'me>>
+    where
+        Self: 'me;
+
+    fn iter(&self) -> Self::Iter<'_>;
+}
+
+pub struct PinnableWideColumnsIter<'a> {
+    columns: &'a PinnableWideColumns<'a>,
+    current_idx: usize,
+}
+
+impl<'me> Iterator for PinnableWideColumnsIter<'me> {
+    type Item = WideColumn<'me>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_idx < self.columns.len() {
+            let column = unsafe { self.columns.get_column_unchecked(self.current_idx) };
+            self.current_idx += 1;
+            Some(WideColumn {
+                name: column.name,
+                value: column.value,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> Iterable for PinnableWideColumns<'a> {
+    type Item<'me> = WideColumn<'me>
+    where
+        Self: 'me;
+
+    type Iter<'me> = PinnableWideColumnsIter<'me>
+    where
+        Self: 'me;
+
+    fn iter(&self) -> Self::Iter<'_> {
+        PinnableWideColumnsIter {
+            columns: self,
+            current_idx: 0,
+        }
+    }
+}
+
+pub struct WideColumnsIter<'a> {
+    columns: &'a WideColumns<'a>,
+    current_idx: usize,
+}
+
+impl<'me> Iterator for WideColumnsIter<'me> {
+    type Item = WideColumn<'me>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_idx < self.columns.len() {
+            let column = unsafe { self.columns.get_column_unchecked(self.current_idx) };
+            self.current_idx += 1;
+            Some(WideColumn {
+                name: column.name,
+                value: column.value,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> Iterable for WideColumns<'a> {
+    type Item<'me> = WideColumn<'me>
+    where
+        Self: 'me;
+
+    type Iter<'me> = WideColumnsIter<'me>
+    where
+        Self: 'me;
+
+    fn iter(&self) -> Self::Iter<'_> {
+        WideColumnsIter {
+            columns: self,
+            current_idx: 0,
+        }
+    }
+}
+
 impl Drop for WideColumns<'_> {
     fn drop(&mut self) {
-        unsafe { ffi::rocksdb_widecolumns_destroy(self.inner as *mut _) }
+        unsafe { ffi::rocksdb_widecolumns_destroy(self.inner.cast_mut()) }
     }
 }
 
 impl Drop for PinnableWideColumns<'_> {
     fn drop(&mut self) {
-        unsafe { ffi::rocksdb_pinnablewidecolumns_destroy(self.inner as *mut _) }
+        unsafe { ffi::rocksdb_pinnablewidecolumns_destroy(self.inner.cast_mut()) }
     }
 }

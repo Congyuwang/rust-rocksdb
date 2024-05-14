@@ -1569,32 +1569,42 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         }
     }
 
-    pub fn put_entity_cf_opt<K, N, V, S>(
+    pub fn put_entity_cf_opt<K, V, I>(
         &self,
         cf: &impl AsColumnFamilyRef,
         key: K,
-        names: N,
-        values: V,
+        names: I,
+        values: I,
         writeopts: &WriteOptions,
     ) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
-        N: AsRef<[S]>,
-        V: AsRef<[S]>,
-        S: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+        I: IntoIterator<Item = V>,
     {
         let key = key.as_ref();
-        let names = names.as_ref();
-        let values = values.as_ref();
 
-        if names.len() != values.len() {
+        let (ptr_names, names_sizes): (Vec<_>, Vec<_>) = names
+            .into_iter()
+            .map(|k| {
+                let k = k.as_ref();
+                (k.as_ptr() as *const c_char, k.len())
+            })
+            .unzip();
+
+        let (ptr_values, values_sizes): (Vec<_>, Vec<_>) = values
+            .into_iter()
+            .map(|k| {
+                let k = k.as_ref();
+                (k.as_ptr() as *const c_char, k.len())
+            })
+            .unzip();
+
+        if ptr_names.len() != ptr_values.len() {
             return Err(Error::new(
                 "columns names and values length mismatch".to_string(),
             ));
         }
-
-        let names_sizes: Vec<usize> = names.iter().map(|x| x.as_ref().len()).collect();
-        let values_sizes: Vec<usize> = values.iter().map(|x| x.as_ref().len()).collect();
 
         unsafe {
             ffi_try!(ffi::rocksdb_put_entity_cf(
@@ -1603,10 +1613,10 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 cf.inner(),
                 key.as_ptr() as *const c_char,
                 key.len() as size_t,
-                names.len(),
-                names.as_ptr() as *const *const c_char,
+                ptr_names.len(),
+                ptr_names.as_ptr() as *const *const c_char,
                 names_sizes.as_ptr() as *const usize,
-                values.as_ptr() as *const *const c_char,
+                ptr_values.as_ptr() as *const *const c_char,
                 values_sizes.as_ptr() as *const usize,
             ));
             Ok(())
