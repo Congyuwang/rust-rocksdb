@@ -16,7 +16,7 @@ pub struct WideColumns<'a> {
 }
 
 impl<'a> WideColumns<'a> {
-    pub(crate) unsafe fn from_c(inner: *const ffi::rocksdb_widecolumns_t) -> Self {
+    pub unsafe fn from_c(inner: *const ffi::rocksdb_widecolumns_t) -> Self {
         Self {
             inner,
             columns_size: ffi::rocksdb_widecolumns_len(inner),
@@ -59,7 +59,7 @@ pub struct PinnableWideColumns<'a> {
 }
 
 impl<'a> PinnableWideColumns<'a> {
-    pub(crate) unsafe fn from_c(inner: *const ffi::rocksdb_pinnablewidecolumns_t) -> Self {
+    pub unsafe fn from_c(inner: *const ffi::rocksdb_pinnablewidecolumns_t) -> Self {
         Self {
             inner,
             columns_size: ffi::rocksdb_pinnablewidecolumns_len(inner),
