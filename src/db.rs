@@ -14,12 +14,11 @@
 //
 
 use crate::{
-    column_family::AsColumnFamilyRef,
-    column_family::BoundColumnFamily,
-    column_family::UnboundColumnFamily,
+    column_family::{AsColumnFamilyRef, BoundColumnFamily, UnboundColumnFamily},
     db_options::OptionsMustOutliveDB,
     ffi,
     ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath, CStrLike},
+    wide_columns::PinnableWideColumns,
     ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIteratorWithThreadMode,
     DBPinnableSlice, DBRawIteratorWithThreadMode, DBWALIterator, Direction, Error, FlushOptions,
     IngestExternalFileOptions, IteratorMode, Options, ReadOptions, SnapshotWithThreadMode,
@@ -1065,6 +1064,40 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
     }
 
     /// Return the value associated with a key using RocksDB's PinnableSlice
+    /// so as to avoid unnecessary memory copy. Similar to get_pinned_opt but
+    /// allows specifying ColumnFamily
+    pub fn get_entity_cf_opt<K: AsRef<[u8]>>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        readopts: &ReadOptions,
+    ) -> Result<Option<PinnableWideColumns>, Error> {
+        if readopts.inner.is_null() {
+            return Err(Error::new(
+                "Unable to create RocksDB read options. This is a fairly trivial call, and its \
+                 failure may be indicative of a mis-compiled or mis-loaded RocksDB library."
+                    .to_owned(),
+            ));
+        }
+
+        let key = key.as_ref();
+        unsafe {
+            let val = ffi_try!(ffi::rocksdb_get_entity_cf(
+                self.inner.inner(),
+                readopts.inner,
+                cf.inner(),
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+            ));
+            if val.is_null() {
+                Ok(None)
+            } else {
+                Ok(Some(PinnableWideColumns::from_c(val)))
+            }
+        }
+    }
+
+    /// Return the value associated with a key using RocksDB's PinnableSlice
     /// so as to avoid unnecessary memory copy. Similar to get_pinned_cf_opt but
     /// leverages default options.
     pub fn get_pinned_cf<K: AsRef<[u8]>>(
@@ -1531,6 +1564,50 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 key.len() as size_t,
                 value.as_ptr() as *const c_char,
                 value.len() as size_t,
+            ));
+            Ok(())
+        }
+    }
+
+    pub fn put_entity_cf_opt<K, N, V, S>(
+        &self,
+        cf: &impl AsColumnFamilyRef,
+        key: K,
+        names: N,
+        values: V,
+        writeopts: &WriteOptions,
+    ) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        N: AsRef<[S]>,
+        V: AsRef<[S]>,
+        S: AsRef<[u8]>,
+    {
+        let key = key.as_ref();
+        let names = names.as_ref();
+        let values = values.as_ref();
+
+        if names.len() != values.len() {
+            return Err(Error::new(
+                "columns names and values length mismatch".to_string(),
+            ));
+        }
+
+        let names_sizes: Vec<usize> = names.iter().map(|x| x.as_ref().len()).collect();
+        let values_sizes: Vec<usize> = values.iter().map(|x| x.as_ref().len()).collect();
+
+        unsafe {
+            ffi_try!(ffi::rocksdb_put_entity_cf(
+                self.inner.inner(),
+                writeopts.inner,
+                cf.inner(),
+                key.as_ptr() as *const c_char,
+                key.len() as size_t,
+                names.len(),
+                names.as_ptr() as *const *const c_char,
+                names_sizes.as_ptr() as *const usize,
+                values.as_ptr() as *const *const c_char,
+                values_sizes.as_ptr() as *const usize,
             ));
             Ok(())
         }
