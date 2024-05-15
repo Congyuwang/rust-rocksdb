@@ -1583,18 +1583,20 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         }
     }
 
-    pub fn put_entity_cf_opt<K, V, I>(
+    pub fn put_entity_cf_opt<'a, 'b, K, V1, V2, I1, I2>(
         &self,
         cf: &impl AsColumnFamilyRef,
         key: K,
-        names: I,
-        values: I,
+        names: I1,
+        values: I2,
         writeopts: &WriteOptions,
     ) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-        I: IntoIterator<Item = V>,
+        V1: 'a + AsRef<[u8]>,
+        V2: 'b + AsRef<[u8]>,
+        I1: IntoIterator<Item = &'a V1>,
+        I2: IntoIterator<Item = &'b V2>,
     {
         let key = key.as_ref();
 
