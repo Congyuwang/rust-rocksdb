@@ -257,11 +257,11 @@ fn wide_columns_test() {
         let names = &[&b"567"[..], &b"1234"[..]];
         let values = &[&b"123f4"[..], &b"43d2100"[..]];
 
-        db.put_entity_cf_opt(cf, b"v1111", names, values, &opt)
+        db.put_entity_cf_opt(&cf, b"v1111", names, values, &opt)
             .unwrap();
 
         let ropt = ReadOptions::default();
-        let columns = db.get_entity_cf_opt(cf, b"v1111", &ropt).unwrap().unwrap();
+        let columns = db.get_entity_cf_opt(&cf, b"v1111", &ropt).unwrap().unwrap();
         let columns = columns.iter().collect::<Vec<_>>();
         assert_eq!(columns.len(), 2);
         assert_eq!(columns[0].name, names[1]);
@@ -269,7 +269,7 @@ fn wide_columns_test() {
         assert_eq!(columns[1].name, names[0]);
         assert_eq!(columns[1].value, values[0]);
 
-        let mut iter = db.raw_iterator_cf(cf);
+        let mut iter = db.raw_iterator_cf(&cf);
         iter.seek_to_first();
         let columns = iter.columns().unwrap();
         let columns = columns.iter().collect::<Vec<_>>();
