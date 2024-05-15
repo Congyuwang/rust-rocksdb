@@ -1602,7 +1602,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             .into_iter()
             .map(|k| {
                 let k = k.as_ref();
-                (k.as_ptr() as *const c_char, k.len())
+                (k.as_ptr(), k.len())
             })
             .unzip();
 
@@ -1610,7 +1610,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
             .into_iter()
             .map(|k| {
                 let k = k.as_ref();
-                (k.as_ptr() as *const c_char, k.len())
+                (k.as_ptr(), k.len())
             })
             .unzip();
 
@@ -1629,9 +1629,9 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
                 key.len() as size_t,
                 ptr_names.len(),
                 ptr_names.as_ptr() as *const *const c_char,
-                names_sizes.as_ptr() as *const usize,
+                names_sizes.as_ptr(),
                 ptr_values.as_ptr() as *const *const c_char,
-                values_sizes.as_ptr() as *const usize,
+                values_sizes.as_ptr(),
             ));
             Ok(())
         }
